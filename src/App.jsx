@@ -22,7 +22,7 @@ const myFirebaseConfig = {
 const firebaseConfig = firebaseConfigStr ? JSON.parse(firebaseConfigStr) : myFirebaseConfig;
 
 try {
-    if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "AIzaSyC1Pbe21ltt_4rHTxdbXOmqObe8GxmJ96I") {
+    if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "PASTE_DISINI") {
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
