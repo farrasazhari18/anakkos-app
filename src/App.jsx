@@ -43,48 +43,22 @@ export default function App() {
 
   // History Saldo State
   const [balanceHistory, setBalanceHistory] = useState([
-    { id: 1, date: '2026-09-30', balance: 2435128 },
-    { id: 2, date: '2026-10-01', balance: 2302728 },
-    { id: 3, date: '2026-10-02', balance: 2156458 },
-    { id: 4, date: formatDate(new Date()), balance: 2156458 } 
+     // DATA DIRESET KOSONG
   ]);
 
   // History Listrik State
   const [electricityHistory, setElectricityHistory] = useState([
-    { id: 1, date: '2026-09-25', kwh: 65.5 },
-    { id: 2, date: '2026-10-01', kwh: 48.0 },
-    { id: 3, date: formatDate(new Date()), kwh: 40.5 }
+     // DATA DIRESET KOSONG
   ]);
 
   // Impulse History State
   const [impulseLogs, setImpulseLogs] = useState([
-    { id: 1, name: 'Kopi Susu Gula Aren', price: 25000, date: '2026-10-01' },
-    { id: 2, name: 'Skin Game', price: 150000, date: '2026-10-02' }
+     // DATA DIRESET KOSONG
   ]);
 
   // Data E-Statement dari PDF Bank Jago User (Sekarang jadi State agar bisa ditambah manual)
   const [transactions, setTransactions] = useState([
-    { id: 1, date: '2026-09-04', name: 'SHOPEE', amount: 46000, category: 'E-Commerce' },
-    { id: 2, date: '2026-09-04', name: 'abenkk Gorengan', amount: 20000, category: 'Makan & Minum' },
-    { id: 3, date: '2026-09-04', name: 'FAMILYMART', amount: 12100, category: 'Makan & Minum' },
-    { id: 4, date: '2026-09-05', name: 'SHOPEE', amount: 98175, category: 'E-Commerce' },
-    { id: 5, date: '2026-09-05', name: 'Warkop Omah21', amount: 5000, category: 'Makan & Minum' },
-    { id: 6, date: '2026-09-06', name: 'ARENA SPORT CENTER', amount: 50000, category: 'Lainnya' },
-    { id: 7, date: '2026-09-06', name: 'MIE ACEH MUTIARA 2', amount: 40000, category: 'Makan & Minum' },
-    { id: 8, date: '2026-09-07', name: 'Mirai Kleen Laundry', amount: 22400, category: 'Lainnya' },
-    { id: 9, date: '2026-09-07', name: 'MIDDLESON HAIRCUT', amount: 70000, category: 'Lainnya' },
-    { id: 10, date: '2026-09-08', name: 'PLN', amount: 52750, category: 'Tagihan & Digital' },
-    { id: 11, date: '2026-09-08', name: 'SHOPEE', amount: 122200, category: 'E-Commerce' },
-    { id: 12, date: '2026-09-08', name: 'SHOPEE', amount: 211505, category: 'E-Commerce' },
-    { id: 13, date: '2026-09-09', name: 'Tokopedia', amount: 41500, category: 'E-Commerce' },
-    { id: 14, date: '2026-09-09', name: 'Grab', amount: 24000, category: 'Transportasi' },
-    { id: 15, date: '2026-09-10', name: 'Coda Payments', amount: 6000, category: 'Tagihan & Digital' },
-    { id: 16, date: '2026-09-11', name: 'Google Play', amount: 32190, category: 'Tagihan & Digital' },
-    { id: 17, date: '2026-09-16', name: 'APOTEK ALPRO', amount: 56500, category: 'Lainnya' },
-    { id: 18, date: '2026-09-20', name: 'GO-CAR', amount: 23000, category: 'Transportasi' },
-    { id: 19, date: '2026-09-22', name: 'kickavenue.com', amount: 560000, category: 'E-Commerce' },
-    { id: 20, date: '2026-09-26', name: 'Almaz Fried Chicken', amount: 39000, category: 'Makan & Minum' },
-    { id: 21, date: '2026-09-28', name: 'SHOPEE', amount: 133900, category: 'E-Commerce' },
+      // DATA DIRESET KOSONG
   ]);
 
   // Kalkulasi E-Statement (Berdasarkan state transactions)
@@ -387,7 +361,7 @@ export default function App() {
                <p className="text-[11px] mb-3 dark:text-gray-400 text-gray-500 italic">Klik kategori di bawah untuk menyaring transaksi:</p>
                <div className="space-y-4">
                   {Object.entries(eStatementStats.categories).map(([catName, amount], idx) => {
-                    const percent = ((amount / eStatementStats.total) * 100).toFixed(0);
+                    const percent = eStatementStats.total > 0 ? ((amount / eStatementStats.total) * 100).toFixed(0) : 0;
                     const colorClass = categoryColors[catName] || 'bg-gray-500';
                     const isSelected = selectedCategory === catName;
                     
@@ -408,13 +382,14 @@ export default function App() {
                       </div>
                     );
                   })}
+                  {eStatementStats.total === 0 && <p className="text-sm dark:text-gray-500 text-gray-400 text-center py-4">Belum ada data dosa pengeluaran.</p>}
                </div>
                
                {/* Sarcastic Note */}
                <div className="mt-5 p-3 dark:bg-rose-500/10 bg-rose-50 rounded-xl text-xs dark:text-rose-400 text-rose-600 text-center font-medium">
                  {selectedCategory 
                     ? `Oh, jadi ini rincian dosa-dosa kamu di kategori ${selectedCategory}...` 
-                    : 'Belanja E-Commerce mendominasi. Yakin tuh barang butuh semua? 🙄'}
+                    : eStatementStats.total > 0 ? 'Belanja E-Commerce mendominasi. Yakin tuh barang butuh semua? 🙄' : 'Wah, dompetmu masih suci bulan ini!'}
                </div>
             </div>
 
@@ -435,8 +410,8 @@ export default function App() {
                  <form onSubmit={handleAddTransaction} className="p-4 mb-4 rounded-[1.5rem] dark:bg-[#1c1c1e] bg-white shadow-sm flex flex-col gap-3 animate-fade-in border dark:border-white/10 border-black/5">
                    <p className="text-xs font-semibold dark:text-gray-300 text-gray-700">Ada dosa belanja yang luput dari PDF?</p>
                    <div className="flex gap-2">
-                     <input type="date" value={newTrx.date} onChange={e=>setNewTrx({...newTrx, date: e.target.value})} className="w-1/3 p-3 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black [color-scheme:dark]" required />
-                     <select value={newTrx.category} onChange={e=>setNewTrx({...newTrx, category: e.target.value})} className="flex-1 p-3 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black cursor-pointer">
+                     <input type="date" value={newTrx.date} onChange={e=>setNewTrx({...newTrx, date: e.target.value})} className="w-[38%] min-w-0 p-3 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black [color-scheme:dark]" required />
+                     <select value={newTrx.category} onChange={e=>setNewTrx({...newTrx, category: e.target.value})} className="flex-1 min-w-0 p-3 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black cursor-pointer">
                        <option value="Makan & Minum">Makan & Minum</option>
                        <option value="E-Commerce">E-Commerce</option>
                        <option value="Tagihan & Digital">Tagihan & Digital</option>
@@ -445,8 +420,8 @@ export default function App() {
                      </select>
                    </div>
                    <div className="flex gap-2">
-                     <input type="text" placeholder="Nama Barang / Warung" value={newTrx.name} onChange={e=>setNewTrx({...newTrx, name: e.target.value})} className="flex-1 p-3 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black" required />
-                     <input type="number" placeholder="Nominal (Rp)" value={newTrx.amount} onChange={e=>setNewTrx({...newTrx, amount: e.target.value})} className="w-1/3 p-3 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black" required />
+                     <input type="text" placeholder="Nama Barang" value={newTrx.name} onChange={e=>setNewTrx({...newTrx, name: e.target.value})} className="flex-1 min-w-0 p-3 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black" required />
+                     <input type="number" placeholder="Nominal" value={newTrx.amount} onChange={e=>setNewTrx({...newTrx, amount: e.target.value})} className="w-[35%] min-w-0 p-3 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black" required />
                    </div>
                    <button type="submit" className="w-full py-3 mt-1 dark:bg-emerald-600 bg-emerald-500 text-white rounded-xl text-xs font-bold active:scale-[0.98] transition-transform shadow-sm">
                      Catat ke Daftar Dosa!
@@ -463,8 +438,8 @@ export default function App() {
                      {editingTrxId === trx.id ? (
                        <div className="flex flex-col gap-2">
                          <div className="flex gap-2">
-                           <input type="date" value={editTrxForm.date} onChange={e=>setEditTrxForm({...editTrxForm, date: e.target.value})} className="w-1/3 p-2 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black [color-scheme:dark]" />
-                           <select value={editTrxForm.category} onChange={e=>setEditTrxForm({...editTrxForm, category: e.target.value})} className="flex-1 p-2 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black">
+                           <input type="date" value={editTrxForm.date} onChange={e=>setEditTrxForm({...editTrxForm, date: e.target.value})} className="w-[38%] min-w-0 p-2 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black [color-scheme:dark]" />
+                           <select value={editTrxForm.category} onChange={e=>setEditTrxForm({...editTrxForm, category: e.target.value})} className="flex-1 min-w-0 p-2 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black">
                              <option value="Makan & Minum">Makan & Minum</option>
                              <option value="E-Commerce">E-Commerce</option>
                              <option value="Tagihan & Digital">Tagihan & Digital</option>
@@ -473,8 +448,8 @@ export default function App() {
                            </select>
                          </div>
                          <div className="flex gap-2">
-                           <input type="text" value={editTrxForm.name} onChange={e=>setEditTrxForm({...editTrxForm, name: e.target.value})} className="flex-1 p-2 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black" />
-                           <input type="number" value={editTrxForm.amount} onChange={e=>setEditTrxForm({...editTrxForm, amount: e.target.value})} className="w-1/3 p-2 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black" />
+                           <input type="text" value={editTrxForm.name} onChange={e=>setEditTrxForm({...editTrxForm, name: e.target.value})} className="flex-1 min-w-0 p-2 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black" />
+                           <input type="number" value={editTrxForm.amount} onChange={e=>setEditTrxForm({...editTrxForm, amount: e.target.value})} className="w-[35%] min-w-0 p-2 rounded-xl text-xs outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-black" />
                          </div>
                          <button onClick={()=>saveEditTrx(trx.id)} className="w-full py-2 dark:bg-emerald-600 bg-emerald-500 text-white rounded-xl text-xs font-bold">Simpan Revisi Dosa</button>
                        </div>
@@ -503,22 +478,23 @@ export default function App() {
              <div className="p-6 rounded-[2rem] dark:bg-[#1c1c1e] bg-white shadow-sm flex flex-col gap-3">
                <p className="text-sm font-semibold dark:text-gray-400 text-gray-500 uppercase tracking-wide">Update Saldo Hari Ini</p>
                <form onSubmit={handleUpdateBalance} className="flex gap-2">
-                 <input type="date" value={dateInput} onChange={(e) => setDateInput(e.target.value)} className="w-1/3 p-4 rounded-2xl text-sm outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-gray-900 [color-scheme:dark]" required />
-                 <input type="number" placeholder="Sisa Saldo (Rp)" value={todayInput} onChange={(e) => setTodayInput(e.target.value)} className="flex-1 p-4 rounded-2xl text-sm outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-gray-900" required />
-                 <button type="submit" className="px-4 dark:bg-blue-600 bg-blue-500 text-white rounded-2xl font-bold shadow-sm active:scale-95 transition-transform"><Icon name="check" /></button>
+                 <input type="date" value={dateInput} onChange={(e) => setDateInput(e.target.value)} className="w-[38%] min-w-0 p-3.5 rounded-2xl text-sm outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-gray-900 [color-scheme:dark]" required />
+                 <input type="number" placeholder="Saldo (Rp)" value={todayInput} onChange={(e) => setTodayInput(e.target.value)} className="flex-1 min-w-0 p-3.5 rounded-2xl text-sm outline-none dark:bg-[#2c2c2e] bg-gray-100 dark:text-white text-gray-900" required />
+                 <button type="submit" className="w-12 shrink-0 flex items-center justify-center dark:bg-blue-600 bg-blue-500 text-white rounded-2xl font-bold shadow-sm active:scale-95 transition-transform"><Icon name="check" /></button>
                </form>
              </div>
 
              <div>
                 <h3 className="text-sm font-semibold dark:text-gray-400 text-gray-500 mb-3 px-2 uppercase tracking-wide">Rekap Pengeluaran Harian</h3>
                 <div className="rounded-[2rem] dark:bg-[#1c1c1e] bg-white shadow-sm overflow-hidden divide-y dark:divide-white/5 divide-black/5">
+                   {dailyRecaps.length === 0 && <p className="p-6 text-sm dark:text-gray-500 text-gray-400 text-center">Belum ada data saldo yang kamu catat.</p>}
                    {dailyRecaps.map(recap => (
                      <div key={recap.id} className="p-4 px-5">
                        {editingBalanceId === recap.id ? (
                           <div className="flex flex-col gap-2">
                             <div className="flex gap-2">
-                               <input type="date" value={editBalanceForm.date} onChange={e=>setEditBalanceForm({...editBalanceForm, date: e.target.value})} className="w-1/3 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black [color-scheme:dark]" />
-                               <input type="number" value={editBalanceForm.balance} onChange={e=>setEditBalanceForm({...editBalanceForm, balance: e.target.value})} className="flex-1 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black" />
+                               <input type="date" value={editBalanceForm.date} onChange={e=>setEditBalanceForm({...editBalanceForm, date: e.target.value})} className="w-[40%] min-w-0 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black [color-scheme:dark]" />
+                               <input type="number" value={editBalanceForm.balance} onChange={e=>setEditBalanceForm({...editBalanceForm, balance: e.target.value})} className="flex-1 min-w-0 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black" />
                             </div>
                             <button onClick={()=>saveEditBalance(recap.id)} className="w-full py-2 dark:bg-blue-600 bg-blue-500 text-white rounded-xl text-xs font-bold">Simpan Perubahan</button>
                           </div>
@@ -601,9 +577,9 @@ export default function App() {
         </div>
 
         <form onSubmit={handleAddRecord} className="flex gap-2">
-          <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="w-1/3 p-4 dark:bg-[#1c1c1e] bg-white shadow-sm rounded-2xl text-sm outline-none dark:text-white text-gray-900 [color-scheme:dark]" required />
-          <input type="number" placeholder="Sisa kWh" value={newKwh} onChange={(e) => setNewKwh(e.target.value)} step="0.1" className="flex-1 p-4 dark:bg-[#1c1c1e] bg-white shadow-sm rounded-2xl text-sm outline-none dark:text-white text-gray-900 dark:placeholder-gray-500 placeholder-gray-400" required />
-          <button type="submit" className="px-5 dark:bg-amber-600 bg-amber-500 text-white rounded-2xl font-bold shadow-sm active:scale-95 transition-transform"><Icon name="plus" /></button>
+          <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="w-[38%] min-w-0 p-3.5 dark:bg-[#1c1c1e] bg-white shadow-sm rounded-2xl text-sm outline-none dark:text-white text-gray-900 [color-scheme:dark]" required />
+          <input type="number" placeholder="Sisa kWh" value={newKwh} onChange={(e) => setNewKwh(e.target.value)} step="0.1" className="flex-1 min-w-0 p-3.5 dark:bg-[#1c1c1e] bg-white shadow-sm rounded-2xl text-sm outline-none dark:text-white text-gray-900 dark:placeholder-gray-500 placeholder-gray-400" required />
+          <button type="submit" className="w-12 shrink-0 flex items-center justify-center dark:bg-amber-600 bg-amber-500 text-white rounded-2xl font-bold shadow-sm active:scale-95 transition-transform"><Icon name="plus" /></button>
         </form>
 
         <div>
@@ -615,8 +591,8 @@ export default function App() {
                 {editingId === record.id ? (
                   <div className="flex flex-col gap-2">
                     <div className="flex gap-2">
-                      <input type="date" value={editForm.date} onChange={e=>setEditForm({...editForm, date: e.target.value})} className="w-1/3 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black [color-scheme:dark]" />
-                      <input type="number" value={editForm.kwh} onChange={e=>setEditForm({...editForm, kwh: e.target.value})} step="0.1" className="flex-1 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black" />
+                      <input type="date" value={editForm.date} onChange={e=>setEditForm({...editForm, date: e.target.value})} className="w-[40%] min-w-0 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black [color-scheme:dark]" />
+                      <input type="number" value={editForm.kwh} onChange={e=>setEditForm({...editForm, kwh: e.target.value})} step="0.1" className="flex-1 min-w-0 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black" />
                     </div>
                     <button onClick={()=>saveEdit(record.id)} className="w-full py-2 dark:bg-emerald-600 bg-emerald-500 text-white rounded-xl text-xs font-bold">Simpan</button>
                   </div>
@@ -701,12 +677,12 @@ export default function App() {
                 {editingId === log.id ? (
                   <div className="flex flex-col gap-2">
                     <div className="flex gap-2">
-                       <input type="date" value={editForm.date} onChange={e=>setEditForm({...editForm, date: e.target.value})} className="w-1/3 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black [color-scheme:dark]" />
-                       <input type="text" value={editForm.name} onChange={e=>setEditForm({...editForm, name: e.target.value})} className="flex-1 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black" />
+                       <input type="date" value={editForm.date} onChange={e=>setEditForm({...editForm, date: e.target.value})} className="w-[40%] min-w-0 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black [color-scheme:dark]" />
+                       <input type="text" value={editForm.name} onChange={e=>setEditForm({...editForm, name: e.target.value})} className="flex-1 min-w-0 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black" />
                     </div>
                     <div className="flex gap-2">
-                       <input type="number" value={editForm.price} onChange={e=>setEditForm({...editForm, price: e.target.value})} className="flex-1 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black" />
-                       <button onClick={()=>saveEdit(log.id)} className="px-4 py-2 dark:bg-emerald-600 bg-emerald-500 text-white rounded-xl text-xs font-bold">Simpan</button>
+                       <input type="number" value={editForm.price} onChange={e=>setEditForm({...editForm, price: e.target.value})} className="flex-1 min-w-0 p-2 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl text-xs outline-none dark:text-white text-black" />
+                       <button onClick={()=>saveEdit(log.id)} className="px-4 py-2 shrink-0 dark:bg-emerald-600 bg-emerald-500 text-white rounded-xl text-xs font-bold">Simpan</button>
                     </div>
                   </div>
                 ) : (
