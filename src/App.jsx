@@ -11,12 +11,12 @@ let app, auth, db;
 
 // Masukkan Config dari Firebase Console kamu di sini!
 const myFirebaseConfig = {
-  apiKey: "AIzaSyC1Pbe21ltt_4rHTxdbXOmqObe8GxmJ96I",
-  authDomain: "anakkos-db.firebaseapp.com",
-  projectId: "anakkos-db",
-  storageBucket: "anakkos-db.firebasestorage.app",
-  messagingSenderId: "964126706961",
-  appId: "1:964126706961:web:f1a5ea5792f3ead1e0d0b0"
+  apiKey: "PASTE_DISINI",
+  authDomain: "PASTE_DISINI",
+  projectId: "PASTE_DISINI",
+  storageBucket: "PASTE_DISINI",
+  messagingSenderId: "PASTE_DISINI",
+  appId: "PASTE_DISINI"
 };
 
 const firebaseConfig = firebaseConfigStr ? JSON.parse(firebaseConfigStr) : myFirebaseConfig;
@@ -339,7 +339,7 @@ export default function App() {
     const [todayInput, setTodayInput] = useState('');
     const [dateInput, setDateInput] = useState(formatDate(new Date()));
     const dailyRecaps = getDailyRecaps();
-
+    const [isExtracting, setIsExtracting] = useState(false);
     // States untuk fitur E-Statement
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [showAddTransaction, setShowAddTransaction] = useState(false);
@@ -432,6 +432,102 @@ export default function App() {
       });
     };
 
+    const processPDFWithAI = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.type !== "application/pdf") {
+        triggerToast("Harus file PDF ya!");
+        return;
+      }
+
+      setIsExtracting(true);
+      triggerToast("Membangunkan AI... Sedang membaca mutasi rekeningmu!");
+
+      try {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+          const base64Data = reader.result.split(',')[1];
+          const apiKey = ""; // API Key disuntikkan otomatis oleh sistem
+          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+          const payload = {
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: "Kamu adalah asisten keuangan. Ekstrak HANYA data transaksi PENGELUARAN (uang keluar/debit) dari dokumen mutasi bank (PDF) ini. Abaikan uang masuk/kredit/transfer masuk. Kategori HANYA boleh diisi salah satu dari: 'Makan & Minum', 'E-Commerce', 'Tagihan & Digital', 'Transportasi', 'Lainnya'." },
+                  { inlineData: { mimeType: "application/pdf", data: base64Data } }
+                ]
+              }
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    date: { type: "STRING", description: "Tanggal transaksi dengan format YYYY-MM-DD" },
+                    name: { type: "STRING", description: "Nama transaksi, merchant, atau keterangan" },
+                    amount: { type: "INTEGER", description: "Nominal pengeluaran dalam angka bulat positif" },
+                    category: { type: "STRING", description: "Kategori pengeluaran (pilih dari yang diizinkan)" }
+                  },
+                  required: ["date", "name", "amount", "category"]
+                }
+              }
+            }
+          };
+
+          try {
+              const res = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+
+              const result = await res.json();
+              
+              if (result.candidates && result.candidates[0].content) {
+                 const jsonStr = result.candidates[0].content.parts[0].text;
+                 const parsed = JSON.parse(jsonStr);
+                 
+                 if (parsed && parsed.length > 0) {
+                    const newTrx = parsed.map(t => ({
+                       id: Date.now() + Math.random(),
+                       date: t.date,
+                       name: t.name,
+                       amount: t.amount,
+                       category: t.category
+                    }));
+                    
+                    setTransactions(prev => {
+                        const updated = [...newTrx, ...prev];
+                        saveToDb('transactions', updated);
+                        return updated;
+                    });
+                    triggerToast(`Berhasil menyalin ${newTrx.length} dosa dari PDF!`);
+                 } else {
+                    triggerToast("AI tidak menemukan pengeluaran, atau PDF-nya dikunci password.");
+                 }
+              } else {
+                 triggerToast("Gagal membaca PDF. Pastikan file tidak dipassword/terkunci!");
+              }
+          } catch (apiErr) {
+              console.error(apiErr);
+              triggerToast("Gagal menghubungi AI. Coba lagi nanti.");
+          } finally {
+              setIsExtracting(false);
+              e.target.value = ''; // Reset input agar bisa upload file yang sama lagi
+          }
+        };
+      } catch (err) {
+        console.error(err);
+        setIsExtracting(false);
+        triggerToast("Terjadi kesalahan saat membaca file.");
+      }
+    };
+
     // Filter transaksi berdasarkan kategori yang diklik
     const filteredTransactions = selectedCategory 
       ? transactions.filter(t => t.category === selectedCategory) 
@@ -449,10 +545,19 @@ export default function App() {
           <div className="space-y-6 animate-fade-in">
             
             {/* Upload Button */}
-            <label className="flex justify-center items-center gap-2 w-full p-4 dark:bg-[#1c1c1e] bg-white shadow-sm border-2 border-dashed dark:border-gray-600 border-gray-300 rounded-2xl cursor-pointer hover:opacity-80 transition-opacity">
-              <Icon name="upload" className="w-5 h-5 dark:text-blue-400 text-blue-600" />
-              <span className="text-sm font-semibold dark:text-white text-gray-900">Upload PDF E-Statement Baru</span>
-              <input type="file" accept=".pdf" className="hidden" onChange={() => triggerToast("File PDF diterima. Sabar, robotnya lagi baca (pura-puranya)...")} />
+            <label className={`flex justify-center items-center gap-2 w-full p-4 shadow-sm border-2 border-dashed rounded-2xl transition-all ${isExtracting ? 'dark:bg-[#2c2c2e] bg-gray-200 dark:border-gray-500 border-gray-400 cursor-wait' : 'dark:bg-[#1c1c1e] bg-white dark:border-gray-600 border-gray-300 cursor-pointer hover:opacity-80'}`}>
+              {isExtracting ? (
+                 <div className="flex items-center gap-3 animate-pulse">
+                    <span className="w-5 h-5 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></span>
+                    <span className="text-sm font-semibold dark:text-gray-300 text-gray-700">AI Sedang Membaca PDF... (10-20 dtk)</span>
+                 </div>
+              ) : (
+                 <>
+                    <Icon name="upload" className="w-5 h-5 dark:text-blue-400 text-blue-600" />
+                    <span className="text-sm font-semibold dark:text-white text-gray-900">Upload PDF E-Statement Baru</span>
+                 </>
+              )}
+              <input type="file" accept=".pdf" className="hidden" disabled={isExtracting} onChange={processPDFWithAI} />
             </label>
 
             {/* E-Statement Dashboard */}
