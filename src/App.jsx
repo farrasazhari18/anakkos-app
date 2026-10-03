@@ -1,4 +1,35 @@
 import React, { useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
+import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+
+// --- FIREBASE SETUP ---
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'anakkos-app';
+const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+
+let app, auth, db;
+
+// Masukkan Config dari Firebase Console kamu di sini!
+const myFirebaseConfig = {
+  apiKey: "AIzaSyC1Pbe21ltt_4rHTxdbXOmqObe8GxmJ96I",
+  authDomain: "anakkos-db.firebaseapp.com",
+  projectId: "anakkos-db",
+  storageBucket: "anakkos-db.firebasestorage.app",
+  messagingSenderId: "964126706961",
+  appId: "1:964126706961:web:f1a5ea5792f3ead1e0d0b0"
+};
+
+const firebaseConfig = firebaseConfigStr ? JSON.parse(firebaseConfigStr) : myFirebaseConfig;
+
+try {
+    if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "PASTE_DISINI") {
+        app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+    }
+} catch (e) {
+    console.error("Firebase init error", e);
+}
 
 // --- ICONS (iOS/OneUI Style) ---
 const Icon = ({ name, className = "w-6 h-6" }) => {
@@ -33,6 +64,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [showToast, setShowToast] = useState('');
   const [isDark, setIsDark] = useState(true);
+
+  const [user, setUser] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(true);
 
   // Profil & Dana Darurat State
   const [profile, setProfile] = useState({
@@ -78,6 +112,55 @@ export default function App() {
     'Tagihan & Digital': 'bg-purple-500',
     'Transportasi': 'bg-emerald-500',
     'Lainnya': 'bg-gray-400'
+  };
+
+  // --- FIREBASE SYNC LOGIC ---
+  useEffect(() => {
+    const initAuth = async () => {
+      if (!auth) { setIsSyncing(false); return; }
+      try {
+        if (typeof __initial_auth_token !== 'undefined') {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+        setUser(auth.currentUser);
+      } catch (error) {
+        console.error("Auth error", error);
+        setIsSyncing(false);
+      }
+    };
+    initAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user || !db) return;
+    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'appData', 'state');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if(data.profile) setProfile(data.profile);
+            if(data.balanceHistory) setBalanceHistory(data.balanceHistory);
+            if(data.electricityHistory) setElectricityHistory(data.electricityHistory);
+            if(data.impulseLogs) setImpulseLogs(data.impulseLogs);
+            if(data.transactions) setTransactions(data.transactions);
+        }
+        setIsSyncing(false);
+    }, (err) => {
+        console.error("Listen error", err);
+        setIsSyncing(false);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const saveToDb = async (key, data) => {
+    if (!user || !db) return;
+    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'appData', 'state');
+    try {
+        await setDoc(docRef, { [key]: data }, { merge: true });
+    } catch(e) {
+        console.error("Gagal nyimpen ke database", e);
+    }
   };
 
   const triggerToast = (msg) => {
@@ -275,10 +358,12 @@ export default function App() {
       if(!todayInput || !dateInput) return;
       setBalanceHistory(prev => {
          const filtered = prev.filter(item => item.date !== dateInput);
-         return [{ id: Date.now(), date: dateInput, balance: parseFloat(todayInput) }, ...filtered];
+         const newArr = [{ id: Date.now(), date: dateInput, balance: parseFloat(todayInput) }, ...filtered];
+         saveToDb('balanceHistory', newArr);
+         return newArr;
       });
       setTodayInput('');
-      triggerToast("Mantap! Saldo berhasil dicatat.");
+      triggerToast("Mantap! Saldo berhasil dicatat di Cloud.");
     };
 
     const handleAddTransaction = (e) => {
@@ -293,10 +378,12 @@ export default function App() {
         category: newTrx.category
       };
       
-      setTransactions([newEntry, ...transactions]);
+      const newArr = [newEntry, ...transactions];
+      setTransactions(newArr);
+      saveToDb('transactions', newArr);
       setNewTrx({ date: formatDate(new Date()), name: '', amount: '', category: 'Makan & Minum' });
       setShowAddTransaction(false);
-      triggerToast("Dosa baru tercatat! Bagus, jujur itu mahal.");
+      triggerToast("Dosa baru tersimpan di Cloud!");
     };
 
     const startEditBalance = (record) => {
@@ -305,12 +392,22 @@ export default function App() {
     };
     
     const saveEditBalance = (id) => {
-      setBalanceHistory(prev => prev.map(item => item.id === id ? { ...item, date: editBalanceForm.date, balance: parseFloat(editBalanceForm.balance) } : item));
+      setBalanceHistory(prev => {
+        const newArr = prev.map(item => item.id === id ? { ...item, date: editBalanceForm.date, balance: parseFloat(editBalanceForm.balance) } : item);
+        saveToDb('balanceHistory', newArr);
+        return newArr;
+      });
       setEditingBalanceId(null);
       triggerToast("Data saldo berhasil diubah.");
     };
     
-    const deleteBalance = (id) => setBalanceHistory(prev => prev.filter(item => item.id !== id));
+    const deleteBalance = (id) => {
+      setBalanceHistory(prev => {
+        const newArr = prev.filter(item => item.id !== id);
+        saveToDb('balanceHistory', newArr);
+        return newArr;
+      });
+    };
 
     const startEditTrx = (trx) => {
       setEditingTrxId(trx.id);
@@ -318,12 +415,22 @@ export default function App() {
     };
 
     const saveEditTrx = (id) => {
-      setTransactions(prev => prev.map(item => item.id === id ? { ...item, date: editTrxForm.date, name: editTrxForm.name, amount: parseFloat(editTrxForm.amount), category: editTrxForm.category } : item));
+      setTransactions(prev => {
+        const newArr = prev.map(item => item.id === id ? { ...item, date: editTrxForm.date, name: editTrxForm.name, amount: parseFloat(editTrxForm.amount), category: editTrxForm.category } : item);
+        saveToDb('transactions', newArr);
+        return newArr;
+      });
       setEditingTrxId(null);
       triggerToast("Daftar dosa berhasil direvisi.");
     };
 
-    const deleteTrx = (id) => setTransactions(prev => prev.filter(item => item.id !== id));
+    const deleteTrx = (id) => {
+      setTransactions(prev => {
+        const newArr = prev.filter(item => item.id !== id);
+        saveToDb('transactions', newArr);
+        return newArr;
+      });
+    };
 
     // Filter transaksi berdasarkan kategori yang diklik
     const filteredTransactions = selectedCategory 
@@ -540,9 +647,11 @@ export default function App() {
       e.preventDefault();
       if (!newDate || !newKwh) return;
       const item = { id: Date.now(), date: newDate, kwh: parseFloat(newKwh) };
-      setElectricityHistory([item, ...electricityHistory]);
+      const newArr = [item, ...electricityHistory];
+      setElectricityHistory(newArr);
+      saveToDb('electricityHistory', newArr);
       setNewKwh('');
-      triggerToast("Sip, data meteran kecatet.");
+      triggerToast("Sip, data meteran tersimpan di Cloud.");
     };
 
     const startEdit = (record) => {
@@ -551,13 +660,21 @@ export default function App() {
     };
 
     const saveEdit = (id) => {
-      setElectricityHistory(prev => prev.map(item =>
-        item.id === id ? { ...item, date: editForm.date, kwh: parseFloat(editForm.kwh) } : item
-      ));
+      setElectricityHistory(prev => {
+        const newArr = prev.map(item => item.id === id ? { ...item, date: editForm.date, kwh: parseFloat(editForm.kwh) } : item);
+        saveToDb('electricityHistory', newArr);
+        return newArr;
+      });
       setEditingId(null);
     };
 
-    const deleteRecord = (id) => setElectricityHistory(prev => prev.filter(item => item.id !== id));
+    const deleteRecord = (id) => {
+      setElectricityHistory(prev => {
+        const newArr = prev.filter(item => item.id !== id);
+        saveToDb('electricityHistory', newArr);
+        return newArr;
+      });
+    };
 
     return (
       <div className="p-6 space-y-6 animate-fade-in pb-32">
@@ -629,9 +746,11 @@ export default function App() {
       e.preventDefault();
       if (!newItem || !newPrice) return;
       const item = { id: Date.now(), name: newItem, price: parseFloat(newPrice), date: formatDate(new Date()) };
-      setImpulseLogs([item, ...impulseLogs]);
+      const newArr = [item, ...impulseLogs];
+      setImpulseLogs(newArr);
+      saveToDb('impulseLogs', newArr);
       setNewItem(''); setNewPrice('');
-      triggerToast("Bagus, catat kebodohanmu hari ini.");
+      triggerToast("Bagus, kebodohanmu tercatat di Cloud.");
     };
 
     const startEdit = (record) => {
@@ -640,13 +759,21 @@ export default function App() {
     };
 
     const saveEdit = (id) => {
-      setImpulseLogs(prev => prev.map(item => 
-        item.id === id ? { ...item, name: editForm.name, price: parseFloat(editForm.price), date: editForm.date } : item
-      ));
+      setImpulseLogs(prev => {
+        const newArr = prev.map(item => item.id === id ? { ...item, name: editForm.name, price: parseFloat(editForm.price), date: editForm.date } : item);
+        saveToDb('impulseLogs', newArr);
+        return newArr;
+      });
       setEditingId(null);
     };
 
-    const deleteRecord = (id) => setImpulseLogs(prev => prev.filter(item => item.id !== id));
+    const deleteRecord = (id) => {
+      setImpulseLogs(prev => {
+        const newArr = prev.filter(item => item.id !== id);
+        saveToDb('impulseLogs', newArr);
+        return newArr;
+      });
+    };
 
     return (
       <div className="p-6 space-y-6 animate-fade-in pb-32">
@@ -711,8 +838,17 @@ export default function App() {
   // 5. Tools & Settings View
   const ToolsView = () => {
     const [itemPrice, setItemPrice] = useState('');
+    const [localProfile, setLocalProfile] = useState(profile);
     const dailyWage = (profile.salary + (profile.bonus || 0)) / 22; 
     const workDaysNeeded = itemPrice ? (parseFloat(itemPrice) / dailyWage).toFixed(1) : 0;
+    
+    useEffect(() => { setLocalProfile(profile); }, [profile]);
+
+    const handleSaveProfile = () => {
+       setProfile(localProfile);
+       saveToDb('profile', localProfile);
+       triggerToast("Profil berhasil disinkronisasi ke Cloud!");
+    };
 
     return (
       <div className="p-6 space-y-6 animate-fade-in pb-32">
@@ -759,19 +895,24 @@ export default function App() {
 
         {/* Settings */}
         <section className="mt-8">
-           <h3 className="text-sm font-semibold dark:text-gray-400 text-gray-500 mb-3 px-2 uppercase tracking-wide">Pengaturan Profil</h3>
+           <div className="flex justify-between items-center mb-3 px-2">
+             <h3 className="text-sm font-semibold dark:text-gray-400 text-gray-500 uppercase tracking-wide">Pengaturan Profil</h3>
+             <button onClick={handleSaveProfile} className="text-[11px] font-bold dark:text-blue-400 text-blue-600 dark:bg-blue-500/20 bg-blue-100 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
+               Simpan Cloud
+             </button>
+           </div>
            <div className="p-5 rounded-[2rem] dark:bg-[#1c1c1e] bg-white shadow-sm space-y-4">
               <div>
                  <label className="block text-xs font-semibold dark:text-gray-400 text-gray-500 mb-2 px-1">Gaji Pokok Bulanan</label>
-                 <input type="number" value={profile.salary} onChange={(e)=>setProfile({...profile, salary: Number(e.target.value)})} className="w-full p-3.5 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl outline-none dark:text-white text-gray-900 text-sm" />
+                 <input type="number" value={localProfile.salary} onChange={(e)=>setLocalProfile({...localProfile, salary: Number(e.target.value)})} className="w-full p-3.5 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl outline-none dark:text-white text-gray-900 text-sm" />
               </div>
               <div>
                  <label className="block text-xs font-semibold dark:text-gray-400 text-gray-500 mb-2 px-1">Bonus / Tambahan Bulan Ini</label>
-                 <input type="number" value={profile.bonus} onChange={(e)=>setProfile({...profile, bonus: Number(e.target.value)})} className="w-full p-3.5 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl outline-none dark:text-white text-gray-900 text-sm" />
+                 <input type="number" value={localProfile.bonus} onChange={(e)=>setLocalProfile({...localProfile, bonus: Number(e.target.value)})} className="w-full p-3.5 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl outline-none dark:text-white text-gray-900 text-sm" />
               </div>
               <div>
                  <label className="block text-xs font-semibold dark:text-gray-400 text-gray-500 mb-2 px-1">Total Dana Darurat Saat Ini</label>
-                 <input type="number" value={profile.emergencySavings} onChange={(e)=>setProfile({...profile, emergencySavings: Number(e.target.value)})} className="w-full p-3.5 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl outline-none dark:text-white text-gray-900 text-sm" />
+                 <input type="number" value={localProfile.emergencySavings} onChange={(e)=>setLocalProfile({...localProfile, emergencySavings: Number(e.target.value)})} className="w-full p-3.5 dark:bg-[#2c2c2e] bg-gray-100 rounded-xl outline-none dark:text-white text-gray-900 text-sm" />
               </div>
            </div>
         </section>
@@ -803,7 +944,11 @@ export default function App() {
 
         {/* Top Header / Theme Toggle */}
         <div className="px-6 pt-12 pb-4 flex justify-between items-center z-20 dark:bg-black/80 bg-[#f2f2f7]/80 backdrop-blur-xl sticky top-0">
-           <div className="font-bold text-xl tracking-tight dark:text-white text-black">AnakKos<span className="text-blue-500">.</span></div>
+           <div className="font-bold text-xl tracking-tight dark:text-white text-black flex items-center">
+             AnakKos<span className="text-blue-500">.</span>
+             {user && <span className="ml-2 mt-1 text-[8px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500">Cloud Sync Aktif</span>}
+             {!user && !isSyncing && <span className="ml-2 mt-1 text-[8px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-500">Offline Mode</span>}
+           </div>
            <button onClick={() => setIsDark(!isDark)} className="p-2.5 rounded-full dark:bg-[#1c1c1e] bg-white shadow-sm dark:text-amber-400 text-gray-500 active:scale-95 transition-all">
              {isDark ? <Icon name="sun" className="w-4 h-4" /> : <Icon name="moon" className="w-4 h-4" />}
            </button>
