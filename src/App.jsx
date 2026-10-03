@@ -11,12 +11,12 @@ let app, auth, db;
 
 // Masukkan Config dari Firebase Console kamu di sini!
 const myFirebaseConfig = {
-  apiKey: "PASTE_DISINI",
-  authDomain: "PASTE_DISINI",
-  projectId: "PASTE_DISINI",
-  storageBucket: "PASTE_DISINI",
-  messagingSenderId: "PASTE_DISINI",
-  appId: "PASTE_DISINI"
+  apiKey: "AIzaSyC1Pbe21ltt_4rHTxdbXOmqObe8GxmJ96I",
+  authDomain: "anakkos-db.firebaseapp.com ",
+  projectId: "anakkos-db",
+  storageBucket: "anakkos-db.firebasestorage.app",
+  messagingSenderId: "964126706961",
+  appId: "1:964126706961:web:f1a5ea5792f3ead1e0d0b0"
 };
 
 const firebaseConfig = firebaseConfigStr ? JSON.parse(firebaseConfigStr) : myFirebaseConfig;
